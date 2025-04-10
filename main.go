@@ -10,10 +10,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Package main initializes and runs a web server that fetches data 
+// Package main initializes and runs a web server that fetches data
 // concurrently from multiple external APIs, including weather, news, and stock market data.
 //
-// The server exposes a `/data` endpoint, which retrieves JSON data from 
+// The server exposes a `/data` endpoint, which retrieves JSON data from
 // OpenWeatherMap, NewsAPI, and MarketStack APIs. The fetched data is
 // returned as a JSON response.
 //
@@ -36,6 +36,11 @@ func main() {
 		log.Fatal("Missing one or more API keys")
 	}
 
+	// Initialize Redis
+	if err := data.InitRedis(); err != nil {
+		log.Fatal("Error initializing Redis:", err)
+	}
+
 	urls := map[string]string{
 		"weather": "https://api.openweathermap.org/data/2.5/weather?q=Nairobi&appid=" + weatherAPIKey,
 		"news":    "https://newsapi.org/v2/top-headlines?country=us&apiKey=" + newsAPIKey,
@@ -45,11 +50,15 @@ func main() {
 
 	r.GET("/data", func(c *gin.Context) {
 		// Fetch the JSON data
-		newsData := data.FetchConcurrently(urls)
+		response, err := data.FetchConcurrently(urls)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
 		// Send the fetched data as a JSON response
-		c.JSON(http.StatusOK, newsData)
+		c.JSON(http.StatusOK, response)
 	})
 
-	r.Run(":8080") 
+	r.Run(":8080")
 }
